@@ -28,7 +28,9 @@ application {
     mainClass = 'org.randvid.directedgraphapp.GraphApplicationKt'
 
     applicationDefaultJvmArgs = [
-            '--add-exports=java.desktop/com.sun.imageio.plugins.png=plantuml'
+            '--add-exports=java.desktop/com.sun.imageio.plugins.png=plantuml',
+            '-Djava.awt.headless=true',
+            '-Dplantuml.thread.count=2',
     ]
 }
 

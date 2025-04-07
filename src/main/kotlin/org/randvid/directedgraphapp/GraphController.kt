@@ -1,5 +1,6 @@
 package org.randvid.directedgraphapp
 
+import javafx.application.Platform
 import javafx.fxml.FXML
 import javafx.scene.control.*
 import javafx.scene.image.Image
@@ -9,6 +10,8 @@ import net.sourceforge.plantuml.FileFormatOption
 import net.sourceforge.plantuml.SourceStringReader
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 
 class GraphController {
     @FXML
@@ -21,11 +24,13 @@ class GraphController {
     private lateinit var vertexToolbar: ToolBar
 
     private var allEdges: List<Pair<String, String?>> = emptyList()
+    private val renderExecutor = Executors.newSingleThreadExecutor()
+    private var currentRenderTask: Future<*>? = null
 
     @FXML
     fun initialize() {
         graphInput.textProperty().addListener { _, _, _ -> updateGraph() }
-        updateGraph() // Initial render
+        updateGraph()
     }
 
     private fun updateGraph() {
@@ -33,7 +38,6 @@ class GraphController {
         val vertices : Set<String> =
             allEdges.flatMap { listOf(it.first, if (it.second == null || it.second == "") it.first else it.second!!) }.toSet()
 
-        // Regenerate checkboxes
         vertexToolbar.items.clear()
         vertices.sorted().forEach { vertex ->
             val checkBox = CheckBox(vertex).apply {
@@ -54,8 +58,20 @@ class GraphController {
             .toSet()
 
         val plantUmlSource = generatePlantUml(allEdges, enabledVertices)
-        val image = renderPlantUml(plantUmlSource)
-        diagramImageView.image = image
+
+        currentRenderTask?.cancel(true)
+
+        currentRenderTask = renderExecutor.submit {
+            try {
+                val image = renderPlantUml(plantUmlSource)
+                Platform.runLater { diagramImageView.image = image }
+            } catch (_: InterruptedException) {
+                println("[DEBUG] thread interrupted")
+                Thread.currentThread().interrupt()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     private fun parseEdges(input: String): List<Pair<String, String?>> =
@@ -71,10 +87,6 @@ class GraphController {
         return buildString {
             appendLine("@startuml")
             appendLine("top to bottom direction")
-            appendLine("skinparam nodesep 10")
-            appendLine("skinparam ranksep 20")
-            appendLine("scale max 2000 width")
-            appendLine("scale max 1500 height")
 
             enabled.forEach { appendLine("class $it") }
             edges.filter { it.first in enabled && it.second in enabled }.forEach { (from, to) ->
@@ -97,5 +109,10 @@ class GraphController {
         }
         println("[DEBUG] returning the image")
         return Image(ByteArrayInputStream(os.toByteArray()))
+    }
+
+    fun shutdown() {
+        currentRenderTask?.cancel(true)
+        renderExecutor.shutdownNow()
     }
 }
