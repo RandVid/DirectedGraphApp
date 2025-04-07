@@ -62,32 +62,40 @@ class GraphController {
         input.lines()
             .mapNotNull { line ->
                 val parts = line.split("->").map { it.trim() }
-                if (parts.size >= 2) parts[0] to parts[1] else null
+                if (parts.size == 2) parts[0] to parts[1]
+                else if (parts.size == 1 && parts[0] != "") parts[0] to null
+                else null
             }
 
     private fun generatePlantUml(edges: List<Pair<String, String?>>, enabled: Set<String>): String {
-        val filteredEdges = edges.filter { it.first in enabled && it.second in enabled }
         return buildString {
-            append("@startuml\n")
-            append("skinparam classAttributeIconSize 0\n")
-            enabled.forEach{ append("class $it\n") }
-            for ((from, to) in filteredEdges) {
-                println("$from $to")
-                if (to != null) append("$from -> $to\n")
+            appendLine("@startuml")
+            appendLine("top to bottom direction")
+            appendLine("skinparam nodesep 10")
+            appendLine("skinparam ranksep 20")
+            appendLine("scale max 2000 width")
+            appendLine("scale max 1500 height")
+
+            enabled.forEach { appendLine("class $it") }
+            edges.filter { it.first in enabled && it.second in enabled }.forEach { (from, to) ->
+                if (to != null) appendLine("$from --> $to")
+                println("[DEBUG] $from $to")
             }
-            append("@enduml\n")
+            appendLine("@enduml")
         }
     }
 
     private fun renderPlantUml(source: String): Image {
         val os = ByteArrayOutputStream()
 
+        println("[DEBUG] sending to plantUML")
         val reader = SourceStringReader(source)
-        val desc = reader.generateImage(os, 0, FileFormatOption(FileFormat.PNG, false))
+        println("[DEBUG] rendering the picture")
+        val desc = reader.generateImage(os, 0, FileFormatOption(FileFormat.PNG))
         if (desc == null) {
             throw RuntimeException("Diagram generation failed — possible Graphviz issue.")
         }
-
+        println("[DEBUG] returning the image")
         return Image(ByteArrayInputStream(os.toByteArray()))
     }
 }
