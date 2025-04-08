@@ -66,7 +66,6 @@ class GraphController {
                 val image = renderPlantUml(plantUmlSource)
                 Platform.runLater { diagramImageView.image = image }
             } catch (_: InterruptedException) {
-                println("[DEBUG] thread interrupted")
                 Thread.currentThread().interrupt()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -74,7 +73,7 @@ class GraphController {
         }
     }
 
-    private fun parseEdges(input: String): List<Pair<String, String?>> =
+    fun parseEdges(input: String): List<Pair<String, String?>> =
         input.lines()
             .mapNotNull { line ->
                 val parts = line.split("->").map { it.trim() }
@@ -83,7 +82,7 @@ class GraphController {
                 else null
             }
 
-    private fun generatePlantUml(edges: List<Pair<String, String?>>, enabled: Set<String>): String {
+    fun generatePlantUml(edges: List<Pair<String, String?>>, enabled: Set<String>): String {
         return buildString {
             appendLine("@startuml")
             appendLine("top to bottom direction")
@@ -91,7 +90,6 @@ class GraphController {
             enabled.forEach { appendLine("class $it") }
             edges.filter { it.first in enabled && it.second in enabled }.forEach { (from, to) ->
                 if (to != null) appendLine("$from --> $to")
-                println("[DEBUG] $from $to")
             }
             appendLine("@enduml")
         }
@@ -100,14 +98,11 @@ class GraphController {
     private fun renderPlantUml(source: String): Image {
         val os = ByteArrayOutputStream()
 
-        println("[DEBUG] sending to plantUML")
         val reader = SourceStringReader(source)
-        println("[DEBUG] rendering the picture")
         val desc = reader.generateImage(os, 0, FileFormatOption(FileFormat.PNG))
         if (desc == null) {
             throw RuntimeException("Diagram generation failed — possible Graphviz issue.")
         }
-        println("[DEBUG] returning the image")
         return Image(ByteArrayInputStream(os.toByteArray()))
     }
 
